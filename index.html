@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>My Todo App</title>
+  <style>
+    /* Basic styling — nothing fancy */
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 500px;
+      margin: 60px auto;
+      background: #f5f5f5;
+      padding: 0 1rem;
+    }
+
+    h1 { color: #333; }
+
+    /* The input box and button sit side by side */
+    .add-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    button {
+      padding: 10px 16px;
+      font-size: 15px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:hover { background: #45a049; }
+
+    /* Each todo item */
+    .todo-item {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .todo-item.done .todo-text {
+      text-decoration: line-through;  /* strikethrough when done */
+      color: #999;
+    }
+
+    .todo-text { flex: 1; font-size: 16px; }
+
+    .done-btn {
+      background: #2196F3;
+      font-size: 13px;
+      padding: 6px 12px;
+    }
+    .done-btn:hover { background: #1976D2; }
+
+    .del-btn {
+      background: #f44336;
+      font-size: 13px;
+      padding: 6px 12px;
+    }
+    .del-btn:hover { background: #d32f2f; }
+
+    #status {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>📝 My Todo App</h1>
+
+  <!-- Input area -->
+  <div class="add-row">
+    <input type="text" id="task-input" placeholder="What do you need to do?" />
+    <button onclick="addTodo()">Add</button>
+  </div>
+
+  <!-- Status text like "3 todos loaded" -->
+  <p id="status">Loading...</p>
+
+  <!-- List of todos will appear here -->
+  <div id="todo-list"></div>
+
+
+  <script>
+    // The address of our backend server
+    const SERVER = "http://localhost:8000";
+
+    // ─────────────────────────────────────────────
+    // Load all todos from the database when page opens
+    // ─────────────────────────────────────────────
+    async function loadTodos() {
+      // Ask the server: "give me all todos"
+      const response = await fetch(SERVER + "/todos");
+
+      // Convert the response into a JavaScript list
+      const todos = await response.json();
+
+      // Show how many todos we have
+      document.getElementById("status").textContent = `${todos.length} todo(s) in database`;
+
+      // Clear the list, then add each todo to the page
+      const list = document.getElementById("todo-list");
+      list.innerHTML = "";  // clear old items
+
+      todos.forEach(todo => {
+        list.appendChild(makeTodoElement(todo));
+      });
+    }
+
+
+    // ─────────────────────────────────────────────
+    // Add a new todo
+    // ─────────────────────────────────────────────
+    async function addTodo() {
+      const input = document.getElementById("task-input");
+      const task = input.value.trim();  // get what the user typed
+
+      if (!task) {
+        alert("Please type something first!");
+        return;
+      }
+
+      // Send the new todo to the server
+      await fetch(SERVER + "/todos", {
+        method: "POST",                              // POST = create something new
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ task: task })         // send as JSON
+      });
+
+      input.value = "";  // clear the input box
+      loadTodos();       // reload the list from database
+    }
+
+
+    // ─────────────────────────────────────────────
+    // Mark a todo as done (or undo it)
+    // ─────────────────────────────────────────────
+    async function toggleDone(id, currentDone) {
+      // Send update to server — flip the done value
+      await fetch(SERVER + "/todos/" + id, {
+        method: "PATCH",                             // PATCH = update something
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ done: !currentDone }) // flip true→false or false→true
+      });
+
+      loadTodos();  // reload to show the change
+    }
+
+
+    // ─────────────────────────────────────────────
+    // Delete a todo
+    // ─────────────────────────────────────────────
+    async function deleteTodo(id) {
+      await fetch(SERVER + "/todos/" + id, {
+        method: "DELETE"   // DELETE = remove it
+      });
+
+      loadTodos();  // reload to remove it from the page
+    }
+
+
+    // ─────────────────────────────────────────────
+    // Build one todo item as HTML
+    // ─────────────────────────────────────────────
+    function makeTodoElement(todo) {
+      // Create a div for this todo
+      const div = document.createElement("div");
+      div.className = "todo-item" + (todo.done ? " done" : "");
+
+      // The text
+      const text = document.createElement("span");
+      text.className = "todo-text";
+      text.textContent = todo.task;
+
+      // Done / Undo button
+      const doneBtn = document.createElement("button");
+      doneBtn.className = "done-btn";
+      doneBtn.textContent = todo.done ? "Undo" : "Done";
+      doneBtn.onclick = () => toggleDone(todo.id, todo.done);
+
+      // Delete button
+      const delBtn = document.createElement("button");
+      delBtn.className = "del-btn";
+      delBtn.textContent = "Delete";
+      delBtn.onclick = () => deleteTodo(todo.id);
+
+      // Put it all together
+      div.appendChild(text);
+      div.appendChild(doneBtn);
+      div.appendChild(delBtn);
+
+      return div;
+    }
+
+
+    // Press Enter to add todo
+    document.getElementById("task-input")
+      .addEventListener("keydown", e => { if (e.key === "Enter") addTodo(); });
+
+    // Load todos as soon as the page opens
+    loadTodos();
+  </script>
+
+</body>
+</html>

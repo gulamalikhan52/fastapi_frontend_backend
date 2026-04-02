@@ -19,7 +19,7 @@ import os
 # ============================================================
 
 # This creates a file called "todos.db" in the same folder
-engine = create_engine("sqlite:///todos.db")
+engine = create_engine("postgresql://postgres:yourpassword@db.xxxx.supabase.co:5432/postgres")
 
 # A "session" is how we talk to the database (like opening a notebook)
 Session = sessionmaker(bind=engine)
